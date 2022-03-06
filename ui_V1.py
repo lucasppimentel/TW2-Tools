@@ -6,8 +6,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import *
-import time
-from selenium.webdriver.common.keys import Keys
+#import time
+#from selenium.webdriver.common.keys import Keys
 import json
 
 
@@ -148,7 +148,9 @@ class Ui_MainWindow(object):
         self.B_tests.setText(_translate("MainWindow", "ForDev"))
         
     def setupBrowser(self, browser_path):
-        self.navegador = webdriver.Chrome(browser_path)
+        options = webdriver.ChromeOptions() 
+        options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        self.navegador = webdriver.Chrome(browser_path, options=options)
         self.navegador.implicitly_wait(2)
 
         # Acordar worker2
@@ -207,14 +209,12 @@ class Ui_MainWindow(object):
         print("Acordar")
         self.Builder = Builder_worker()
         self.Builder.navegador = self.navegador
-        self.Builder.isQueueEmpty = twb.isQueueEmpty
-        self.Builder.construir = twb.construir
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
         self.Builder.fila_bot = self.fila_cons
         self.Builder.start()
         
         self.Builder.cons_built.connect(self.cons_built)
-        self.Builder.finished.connect(self.Builder.quit())
+        #self.Builder.finished.connect(self.Builder.quit())
     
     def Button_scan_click(self):
         print("Scan")
@@ -269,20 +269,22 @@ class Builder_worker(QtCore.QThread):
         if len(self.fila_bot) == 0:
             print("Sem fila")
             
-        elif self.isQueueEmpty():
+        elif twb.isQueueEmpty(self):
             cons = self.fila_bot[0]
             print(cons)
             
             # Signal que a construção foi feita
             self.cons_built.emit(0)
             
-            self.construir(cons)
+            twb.construir(self, cons)
             print("Feito")
             
         else:
             print("Fila cheia")
 
+        self.quit()
+
 
 
 if __name__ == "__main__":
-    print("arquivo errado vadia")
+    print("Not main")

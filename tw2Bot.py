@@ -53,7 +53,7 @@ def goto_aldeia(object_):
 
 # Aprimora um edifício
 def construir(object_, cons):
-    object_.goto_aldeia()
+    goto_aldeia(object_)
     object_.navegador.find_element_by_xpath('//*[text()[contains(., "Edifício Principal")]]').click()
     object_.navegador.find_element_by_class_name('menu-highlight').click()
     object_.navegador.find_element_by_xpath(
@@ -65,7 +65,7 @@ def adicionar_unidade(object_, key, value):
         str(value))
     
 def criar_predef(object_, nome, un_qnt):
-    object_.goto_aldeia()
+    goto_aldeia(object_)
     object_.navegador.find_element_by_xpath('//*[text()[contains(., "Ponto de Encontro")]]').click()
     object_.navegador.find_element_by_class_name('menu-highlight').click()
     object_.navegador.find_element_by_css_selector('*[ng-click="createPreset();"]').click()
@@ -75,7 +75,7 @@ def criar_predef(object_, nome, un_qnt):
     object_.navegador.find_element_by_xpath('//*[text()[contains(.,"Ok")]]/..').click()
 
     for unidade, quantidade in un_qnt.items():
-        object_.adicionar_unidade(unidade, quantidade)
+        adicionar_unidade(object_, unidade, quantidade)
 
     object_.navegador.find_element_by_xpath('//*[text()[contains(.,"Salvar")]]/..').click()
     object_.navegador.find_element_by_css_selector('*[ng-click="closeWindow();"]').click()
@@ -83,7 +83,7 @@ def criar_predef(object_, nome, un_qnt):
     object_.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
 
 def deletar_predef(object_, nome):
-    object_.goto_aldeia()
+    goto_aldeia(object_)
     object_.navegador.find_element_by_xpath('//*[text()[contains(., "Ponto de Encontro")]]').click()
     object_.navegador.find_element_by_class_name('menu-highlight').click()
     tmp = object_.navegador.find_element_by_xpath(
@@ -100,7 +100,7 @@ def desabilitar_dicas(object_):
 
 # Recruta unidades
 def recrutar(object_, un_id, qnt):
-    object_.goto_aldeia()
+    goto_aldeia(object_)
     object_.navegador.find_element_by_xpath('//*[text()[contains(., "Quartel")]]').click()
     object_.navegador.find_element_by_class_name('menu-highlight').click()
     object_.navegador.find_element_by_xpath('//*[text()[contains(.,"{}")]]/../../../..'.format(un_id)).click()

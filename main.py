@@ -10,5 +10,6 @@ ui = jn.Ui_MainWindow()
 path = "chromedriver"
 
 ui.setupUi(MainWindow, path)
+ui.setupBrowser(path)
 MainWindow.show()
 sys.exit(app.exec_())
