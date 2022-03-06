@@ -481,10 +481,6 @@ class Builder_worker(QtCore.QThread):
             print("Fila cheia")
 
 
-''' Esqueci oq é isso que eu anotei
-instantBuild(queue[key], true); $event.stopPropagation()
-'''
-
 
 if __name__ == "__main__":
-    print("arquivo errado vadia")
+    print("Not main")
