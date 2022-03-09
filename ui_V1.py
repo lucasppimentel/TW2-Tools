@@ -161,7 +161,7 @@ class Ui_MainWindow(object):
 
 
     def Button_test_click(self):
-        print("Test")
+        print(f'M:{self.resources["Madeira"].text}, F:{self.resources["Ferro"].text}, A:{self.resources["Argila"].text}')
     
     def Button_setup_army_click(self):
         nome = "farm_pred"
@@ -174,6 +174,7 @@ class Ui_MainWindow(object):
         twb.coletar_recompensa(self)
         twb.desabilitar_dicas(self)
         self.navegador.implicitly_wait(5)
+        self.resources = twb.atualizar_recursos(self)
         
         self.worker2.quit()
     
@@ -193,11 +194,13 @@ class Ui_MainWindow(object):
     def Button_update_resources_click(self):
         # que?
         # Parece que n faz nada
-        self.worker = Resources_Worker()
-        self.worker.chrome = self.navegador
-        self.worker.start()
+        #self.worker = Resources_Worker()
+        #self.worker.chrome = self.navegador
+        #self.worker.start()
         
-        self.worker.finished.connect(self.worker2.quit())
+        #self.worker.finished.connect(self.worker2.quit())
+
+        self.resources = twb.atualizar_recursos(self)
     
     def Button_build_click(self):
         print("Build")
@@ -227,7 +230,7 @@ class Ui_MainWindow(object):
 
 class Resources_Worker(QtCore.QThread):
     def run(self):
-        print(self.atualizar_recursos())
+        print(twb.atualizar_recursos(self))
 
 class First_Init(QtCore.QThread):
     def run(self):

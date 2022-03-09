@@ -10,11 +10,11 @@ from json import load
 
 def atualizar_recursos(object_):
     madeira = object_.navegador.find_element_by_xpath(
-        '//*[contains(@tooltip-before-show-args, "wood")]/div[2]/div').text
+        '//*[contains(@tooltip-before-show-args, "wood")]/div[2]/div')
     ferro = object_.navegador.find_element_by_xpath(
-        '//*[contains(@tooltip-before-show-args, "iron")]/div[2]/div').text
+        '//*[contains(@tooltip-before-show-args, "iron")]/div[2]/div')
     argila = object_.navegador.find_element_by_xpath(
-        '//*[contains(@tooltip-before-show-args, "clay")]/div[2]/div').text
+        '//*[contains(@tooltip-before-show-args, "clay")]/div[2]/div')
     return {"Madeira": madeira, "Ferro": ferro, "Argila": argila}
 
 def atualizar_filas(object_):
