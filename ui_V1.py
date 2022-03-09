@@ -1,13 +1,13 @@
 from PyQt5 import QtCore, QtWidgets
-
+import tw2Bot as twb
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import *
-import time
-from selenium.webdriver.common.keys import Keys
+#import time
+#from selenium.webdriver.common.keys import Keys
 import json
 
 
@@ -19,10 +19,7 @@ def load_json(path: str) -> dict:
 class Ui_MainWindow(object):
     # =========================PYQT Designer===================================
     def setupUi(self, MainWindow, path):
-        
-        self.navegador = webdriver.Chrome(path)
-        self.navegador.implicitly_wait(2)
-        
+
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(800, 600)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -112,13 +109,13 @@ class Ui_MainWindow(object):
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         
-        self.B_Farmar.clicked.connect(self.F_farm_click)
-        self.B_Add_Coords.clicked.connect(self.F_add_coords)
-        self.B_Atualizar_Rec.clicked.connect(self.F_atualizar_recursos)
-        self.B_Construir.clicked.connect(self.F_Build)
-        self.B_Escanear.clicked.connect(self.F_Scan)
-        self.B_setup.clicked.connect(self.F_Setup)
-        self.B_tests.clicked.connect(self.F_Tester)
+        self.B_Farmar.clicked.connect(self.Button_farm_click)
+        self.B_Add_Coords.clicked.connect(self.Button_add_coords_click)
+        self.B_Atualizar_Rec.clicked.connect(self.Button_update_resources_click)
+        self.B_Construir.clicked.connect(self.Button_build_click)
+        self.B_Escanear.clicked.connect(self.Button_scan_click)
+        self.B_setup.clicked.connect(self.Button_setup_army_click)
+        self.B_tests.clicked.connect(self.Button_test_click)
         
 
     def retranslateUi(self, MainWindow):
@@ -150,282 +147,90 @@ class Ui_MainWindow(object):
         self.B_setup.setText(_translate("MainWindow", "Setup Predef"))
         self.B_tests.setText(_translate("MainWindow", "ForDev"))
         
+    def setupBrowser(self, browser_path):
+        options = webdriver.ChromeOptions() 
+        options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        self.navegador = webdriver.Chrome(browser_path, options=options)
+        self.navegador.implicitly_wait(2)
+
         # Acordar worker2
         self.worker2 = First_Init()
         self.worker2.chrome = self.navegador
         self.worker2.start()
         self.worker2.finished.connect(self.F_after_init)
-        
+
+
+    def Button_test_click(self):
+        print(f'M:{self.resources["Madeira"].text}, F:{self.resources["Ferro"].text}, A:{self.resources["Argila"].text}')
     
-    def F_Tester(self):
-        print("Test")
-    
-    def F_Setup(self):
+    def Button_setup_army_click(self):
         nome = "farm_pred"
         un_qnt = {"Lanceiro":1}
 
-        self.criar_predef(nome, un_qnt)
+        twb.criar_predef(self, nome, un_qnt)
     
     def F_after_init(self):
         self.navegador.implicitly_wait(2)
-        self.coletar_recompensa()
-        self.desabilitar_dicas()
+        twb.coletar_recompensa(self)
+        twb.desabilitar_dicas(self)
         self.navegador.implicitly_wait(5)
+        self.resources = twb.atualizar_recursos(self)
         
         self.worker2.quit()
     
-    def F_farm_click(self):
+    def Button_farm_click(self):
         print("Farm")
         for i in range(self.Lista_Farm.count()):
             alvo = self.Lista_Farm.item(i).text()
-            self.atacar(alvo, "farm_pred")
+            twb.atacar(self, alvo, "farm_pred")
             
-    def F_add_coords(self):
+    def Button_add_coords_click(self):
         coord_x = self.I_Coord_X.text()
         coord_y = self.I_Coord_Y.text()
         
         coord = f"{coord_x} | {coord_y}"
         self.Lista_Farm.addItem(coord)
         
-    def F_atualizar_recursos(self):
-        self.worker = Resources_Worker()
-        self.worker.chrome = self.navegador
-        self.worker.start()
+    def Button_update_resources_click(self):
+        # que?
+        # Parece que n faz nada
+        #self.worker = Resources_Worker()
+        #self.worker.chrome = self.navegador
+        #self.worker.start()
         
-        self.worker.finished.connect(self.worker2.quit())
+        #self.worker.finished.connect(self.worker2.quit())
+
+        self.resources = twb.atualizar_recursos(self)
     
-    def F_Build(self):
+    def Button_build_click(self):
         print("Build")
         cons = self.C_Edificio.currentText()
         self.Fila.addItem(cons)
         
         # Acordar Builder
+        # PRECISA DE ATENÇÂO ISSO AQUI
         print("Acordar")
         self.Builder = Builder_worker()
         self.Builder.navegador = self.navegador
-        self.Builder.isQueueEmpty = self.isQueueEmpty
-        self.Builder.construir = self.construir
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
         self.Builder.fila_bot = self.fila_cons
         self.Builder.start()
         
         self.Builder.cons_built.connect(self.cons_built)
-        self.Builder.finished.connect(self.Builder.quit())
+        #self.Builder.finished.connect(self.Builder.quit())
     
-    def F_Scan(self):
+    def Button_scan_click(self):
         print("Scan")
-        alvos = self.escanear_provincia()
+        alvos = twb.escanear_provincia(self)
         self.Lista_Farm.addItems(alvos)
     
     def cons_built(self, val):
         self.Fila.takeItem(val)
     
-    # ================================TWB======================================
-    def atualizar_recursos(self):
-        madeira = self.navegador.find_element_by_xpath(
-            '//*[contains(@tooltip-before-show-args, "wood")]/div[2]/div').text
-        ferro = self.navegador.find_element_by_xpath(
-            '//*[contains(@tooltip-before-show-args, "iron")]/div[2]/div').text
-        argila = self.navegador.find_element_by_xpath(
-            '//*[contains(@tooltip-before-show-args, "clay")]/div[2]/div').text
-        return {"Madeira": madeira, "Ferro": ferro, "Argila": argila}
-
-    def atualizar_filas(self):
-        fila = self.navegador.find_elements_by_xpath(
-            '//div[contains(@tooltip-content, "Aprimorar p/")]')
-        fila = list(map(lambda x: x.get_attribute("tooltip-content").split('-')[0].rstrip(), fila))
-        return fila
-
-    # Coleta recompensa diaria
-    def coletar_recompensa(self):
-        try:
-            self.navegador.find_element_by_css_selector(
-                '*[ng-click="claimReward()"]').click()  # Mudar  <------
-        except NoSuchElementException:
-            print("Recompensa diária não exibida!")
-            pass
-
-    # Entra na visão da aldeia
-    def goto_aldeia(self):
-        tela_mundi = True
-        while tela_mundi:
-            try:
-                WebDriverWait(self.navegador, 2).until(
-                    EC.element_to_be_clickable((By.ID, 'village-zoom')))
-
-            except TimeoutException:
-                tela_mundi = False
-                pass
-            
-            except ElementNotInteractableException:
-                pass
-            
-            else:
-                self.navegador.find_element_by_id('village-zoom').click()
-                time.sleep(1)
-
-    # Aprimora um edifício
-    def construir(self, cons):
-        self.goto_aldeia()
-        self.navegador.find_element_by_xpath('//*[text()[contains(., "Edifício Principal")]]').click()
-        self.navegador.find_element_by_class_name('menu-highlight').click()
-        self.navegador.find_element_by_xpath(
-            '//*[text()[contains(., "{}")]]/../../../../tr[4]/td/span'.format(cons)).click()
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
-        
-    def adicionar_unidade(self, key, value):
-        self.navegador.find_element_by_xpath('//*[text()[contains(.,"{}")]]/../Input'.format(key)).send_keys(
-            str(value))
-        
-    def criar_predef(self, nome, un_qnt):
-        self.goto_aldeia()
-        self.navegador.find_element_by_xpath('//*[text()[contains(., "Ponto de Encontro")]]').click()
-        self.navegador.find_element_by_class_name('menu-highlight').click()
-        self.navegador.find_element_by_css_selector('*[ng-click="createPreset();"]').click()
-        self.navegador.find_element_by_xpath('//input[@placeholder="Digite o nome da predefinição"]').send_keys(
-            str(nome))
-        self.navegador.find_element_by_xpath('//*[text()[contains(.,"Salvar")]]/..').click()
-        self.navegador.find_element_by_xpath('//*[text()[contains(.,"Ok")]]/..').click()
-
-        for unidade, quantidade in un_qnt.items():
-            self.adicionar_unidade(unidade, quantidade)
-
-        self.navegador.find_element_by_xpath('//*[text()[contains(.,"Salvar")]]/..').click()
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow();"]').click()
-        
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
-
-    def deletar_predef(self, nome):
-        self.goto_aldeia()
-        self.navegador.find_element_by_xpath('//*[text()[contains(., "Ponto de Encontro")]]').click()
-        self.navegador.find_element_by_class_name('menu-highlight').click()
-        tmp = self.navegador.find_element_by_xpath(
-            "//span[contains(@class, 'preset-name text-normal ff-cell-fix') and text()='{}']".format(nome))
-        tmp.find_element_by_xpath(".//ancestor::td/../td[10]/a").click()
-        self.navegador.find_element_by_css_selector('*[ng-click="submit($event)"]').click()
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]')
-
-    def desabilitar_dicas(self):
-        self.navegador.find_element_by_class_name('icon-60x60-settings').click()
-        self.navegador.find_element_by_class_name('icon-44x44-settings-game').click()
-        self.navegador.find_element_by_id('settings-smart-tips').find_element_by_xpath('.//ancestor::label').click()
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
-
-    # Recruta unidades
-    def recrutar(self, un_id, qnt):
-        self.goto_aldeia()
-        self.navegador.find_element_by_xpath('//*[text()[contains(., "Quartel")]]').click()
-        self.navegador.find_element_by_class_name('menu-highlight').click()
-        self.navegador.find_element_by_xpath('//*[text()[contains(.,"{}")]]/../../../..'.format(un_id)).click()
-        self.navegador.find_element_by_xpath(
-            '//*[text()[contains(.,"{}")]]/../../tr[3]/td/input'.format(un_id)).send_keys(qnt)
-        self.navegador.find_element_by_xpath(
-            '//*[text()[contains(.,"{}")]]/../../tr[3]/td/input'.format(un_id)).send_keys(
-            Keys.ENTER)
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
-
-    # Salva as coordenadas das aldeias bárbaras DA LISTA DA PROVINCIA ABERTA NA HORA
-    def escanear_provincia(self):
-        lista = []
-        occur = self.navegador.find_elements_by_xpath('//td[text()[contains(., "Aldeia Bárbara")]]')
-        for i in range(0, int(len(occur) / 2)):
-            u = occur[i]
-            coord = u.find_element_by_xpath(".//ancestor::tr/td[3]")
-            lista.append(coord.get_attribute("innerHTML"))
-        
-        self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
-
-        return lista
-
-    def atacar(self, coord, predef):
-        self.navegador.find_element_by_id('world-map').click()
-        self.navegador.find_element_by_css_selector('*[ng-model="coordinates.x"]').clear()
-        self.navegador.find_element_by_css_selector('*[ng-model="coordinates.x"]').send_keys(coord[:3])
-        self.navegador.find_element_by_css_selector('*[ng-model="coordinates.y"]').clear()
-        self.navegador.find_element_by_css_selector('*[ng-model="coordinates.y"]').send_keys(coord[6:])
-        self.navegador.find_element_by_css_selector('*[ng-model="coordinates.y"]').send_keys(Keys.ENTER)
-
-        self.navegador.find_element_by_xpath(
-            '//div[contains(@tooltip-content, "Predefinições") and contains(@class, "border")]').click()
-        
-        B_desbug = self.navegador.find_element_by_css_selector(
-            '*[ng-click="editPreset(preset);"]')
-        B_desbug.click()
-        
-        self.navegador.find_element_by_css_selector(
-            '*[ng-click="closeWindow();"]').click()
-        
-        tmp = self.navegador.find_element_by_xpath(
-            '//span[contains(@class, "preset-name text-normal ff-cell-fix") \
-                and text()="{}"]'.format(predef))
-        tmp.find_element_by_xpath('.//ancestor::td/../../tr[2]/td[3]/a').click()
-        
-        self.navegador.find_element_by_css_selector(
-            '*[ng-click="closeWindow();"]').click()
-        
-    # Refaz essa merda ne
-    def coletar_missoes(self, recursos):
-        
-
-        capacidade = load_json('C:/Users/Pichau/Desktop/projs/tw2bot/alpha/CapacidadeNivel.json')
-
-        quests = self.navegador.find_elements_by_css_selector('*[ng-click="openQuestLineModal(questLineModel);"]')
-        for missao in quests:
-            missao.click()
-            subq = self.navegador.find_elements_by_xpath(
-                '//*[contains(@class, "text-overflow") and contains(text(), "Parte")]/..')
-            for submiss in subq:
-                submiss.click()
-
-                try:
-                    botao = self.navegador.find_element_by_css_selector('*[ng-click="finishQuest();"]')
-                except NoSuchElementException:
-                    print("Concluida")
-                    pass
-                else:
-                    if 'green' in botao.get_attribute('class'):
-                        reward = self.navegador.find_elements_by_xpath(
-                            '//span[contains(@ng-init, "itemTitle = getDisplayedName(reward)")]')
-                        reward = list(map(lambda x: x.text, reward))
-                        caso = []
-
-                        for rec in recursos:
-                            reward_recursos = [(int(recursos[rec].replace('.', '')) +
-                                                int(rew[:3]))
-                                               for i, rew in enumerate(reward) if rec in rew]
-                            caso.append(reward_recursos[0])
-
-                        a = True
-                        nivel_armazem = self.navegador.find_element_by_xpath(
-                            '//*[text()[contains(., " Armazém ")]]/../span[2]/span').text
-                        for rew in caso:
-                            if rew >= capacidade[nivel_armazem]:
-                                a = False
-                                break
-                            else:
-                                pass
-                        if a:
-                            botao.click()
-                    else:
-                        pass
-            self.navegador.find_element_by_css_selector('*[ng-click="closeWindow()"]').click()
-        return 0
-    
-    def isQueueEmpty(self):
-        try:
-            self.navegador.find_element_by_xpath(
-                "//div[contains(@ng-if, '!queue[key]') and \
-                contains(@tooltip-content, 'Abre a Janela do Edifício Principal')]")
-        except NoSuchElementException:
-            return False
-        else:
-            return True
-    
-    # =========================================================================
 
 class Resources_Worker(QtCore.QThread):
     def run(self):
-        print(self.atualizar_recursos())
+        print(twb.atualizar_recursos(self))
 
 class First_Init(QtCore.QThread):
     def run(self):
@@ -467,20 +272,20 @@ class Builder_worker(QtCore.QThread):
         if len(self.fila_bot) == 0:
             print("Sem fila")
             
-        elif self.isQueueEmpty():
+        elif twb.isQueueEmpty(self):
             cons = self.fila_bot[0]
             print(cons)
             
             # Signal que a construção foi feita
             self.cons_built.emit(0)
             
-            self.construir(cons)
+            twb.construir(self, cons)
             print("Feito")
             
         else:
             print("Fila cheia")
 
-
+        self.quit()
 
 if __name__ == "__main__":
     print("Not main")
