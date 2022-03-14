@@ -9,6 +9,7 @@ from selenium.common.exceptions import *
 #import time
 #from selenium.webdriver.common.keys import Keys
 import json
+import time
 
 
 def load_json(path: str) -> dict:
@@ -69,9 +70,9 @@ class Ui_MainWindow(object):
         self.CB_Auto_Build = QtWidgets.QCheckBox(self.centralwidget)
         self.CB_Auto_Build.setGeometry(QtCore.QRect(680, 50, 70, 17))
         self.CB_Auto_Build.setObjectName("CB_Auto_Build")
-        self.B_Atualizar_Rec = QtWidgets.QPushButton(self.centralwidget)
-        self.B_Atualizar_Rec.setGeometry(QtCore.QRect(500, 20, 131, 41))
-        self.B_Atualizar_Rec.setObjectName("B_Atualizar_Rec")
+        #self.B_Atualizar_Rec = QtWidgets.QPushButton(self.centralwidget)
+        #self.B_Atualizar_Rec.setGeometry(QtCore.QRect(500, 20, 131, 41))
+        #self.B_Atualizar_Rec.setObjectName("B_Atualizar_Rec")
         self.checkBox = QtWidgets.QCheckBox(self.centralwidget)
         self.checkBox.setGeometry(QtCore.QRect(680, 70, 101, 17))
         self.checkBox.setObjectName("checkBox")
@@ -111,7 +112,7 @@ class Ui_MainWindow(object):
         
         self.B_Farmar.clicked.connect(self.Button_farm_click)
         self.B_Add_Coords.clicked.connect(self.Button_add_coords_click)
-        self.B_Atualizar_Rec.clicked.connect(self.Button_update_resources_click)
+        #self.B_Atualizar_Rec.clicked.connect(self.Button_update_resources_click)
         self.B_Construir.clicked.connect(self.Button_build_click)
         self.B_Escanear.clicked.connect(self.Button_scan_click)
         self.B_setup.clicked.connect(self.Button_setup_army_click)
@@ -136,7 +137,7 @@ class Ui_MainWindow(object):
         self.B_Add_Coords.setText(_translate("MainWindow", "+"))
         self.CB_Auto_farm.setText(_translate("MainWindow", "Auto-Farm"))
         self.CB_Auto_Build.setText(_translate("MainWindow", "Auto-Build"))
-        self.B_Atualizar_Rec.setText(_translate("MainWindow", "Atualizar Recursos"))
+        #self.B_Atualizar_Rec.setText(_translate("MainWindow", "Atualizar Recursos"))
         self.checkBox.setText(_translate("MainWindow", "Auto-Rewards"))
         self.label.setText(_translate("MainWindow", "Alvos de Farm"))
         self.label_2.setText(_translate("MainWindow", "Fila de Construção"))
@@ -161,7 +162,7 @@ class Ui_MainWindow(object):
 
 
     def Button_test_click(self):
-        print(f'M:{self.resources["Madeira"].text}, F:{self.resources["Ferro"].text}, A:{self.resources["Argila"].text}')
+        twb.isRewardAvaliable(self)
     
     def Button_setup_army_click(self):
         nome = "farm_pred"
@@ -190,17 +191,6 @@ class Ui_MainWindow(object):
         
         coord = f"{coord_x} | {coord_y}"
         self.Lista_Farm.addItem(coord)
-        
-    def Button_update_resources_click(self):
-        # que?
-        # Parece que n faz nada
-        #self.worker = Resources_Worker()
-        #self.worker.chrome = self.navegador
-        #self.worker.start()
-        
-        #self.worker.finished.connect(self.worker2.quit())
-
-        self.resources = twb.atualizar_recursos(self)
     
     def Button_build_click(self):
         print("Build")
@@ -226,11 +216,6 @@ class Ui_MainWindow(object):
     
     def cons_built(self, val):
         self.Fila.takeItem(val)
-    
-
-class Resources_Worker(QtCore.QThread):
-    def run(self):
-        print(twb.atualizar_recursos(self))
 
 class First_Init(QtCore.QThread):
     def run(self):
@@ -286,6 +271,47 @@ class Builder_worker(QtCore.QThread):
             print("Fila cheia")
 
         self.quit()
+
+#Manager_worker.navegador = self.navegador
+#Manager_worker.awaken = True
+#Manager_worker.attack_in = 5 # How many seconds between attacks
+class Manager_worker(QtCore.QThread):
+    def run(self):
+        print("Manager awaken")
+
+        self.the_ui_know_Q = False
+        self.the_ui_know_R = False
+        self.the_ui_know_A = False
+
+        now = time.time()
+        while self.awaken:
+            # Variable to build
+            queue_empty = twb.isQueueEmpty(self)
+
+            # Variables to attack
+            time_since_last_attack = now - time.time()
+
+            #  Variable to collect rewards
+            reward_available = twb.isRewardAvailable(self)
+
+            if time_since_last_attack > self.attack_in and self.the_ui_know_A:
+                # Signal to attack
+                print("Time to attack")
+                self.the_ui_know_A = True
+                now = time.time()
+
+            if queue_empty and not self.the_ui_know_Q:
+                # Signal to build
+                print("Queue empty")
+                self.the_ui_know_Q = True
+
+            if reward_available and not self.the_ui_know_R:
+                #Signal to collect rewards
+                print("Rewards available")
+                self.the_ui_know_R = True
+        
+        self.quit()
+    
 
 if __name__ == "__main__":
     print("Not main")

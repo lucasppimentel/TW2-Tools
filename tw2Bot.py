@@ -1,4 +1,3 @@
-from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -155,7 +154,6 @@ def load_json(path: str) -> dict:
     with open(path, 'r', encoding='utf-8') as f:
         return load(f)
 
-
 # A recursive function should make this acceptable
 def coletar_missoes(object_, recursos):
     capacidade = load_json('C:/Users/Pichau/Desktop/projs/tw2bot/alpha/CapacidadeNivel.json')
@@ -211,3 +209,16 @@ def isQueueEmpty(object_):
         return False
     else:
         return True
+
+def isRewardAvailable(object_):
+    try:
+        object_.navegador.find_element_by_xpath("//li[contains(@class, 'finishable') and \
+            contains(@ng-click, 'openQuestLineModal(questLineModel);')]")
+    except NoSuchElementException:
+        print("No finishable quests found")
+        return False
+    else:
+        print("Finishable quests found")
+        return True
+
+    print("Fim")
