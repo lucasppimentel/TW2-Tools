@@ -156,7 +156,7 @@ def load_json(path: str) -> dict:
 
 # A recursive function should make this acceptable
 def coletar_missoes(object_, recursos):
-    capacidade = load_json('C:/Users/Pichau/Desktop/projs/tw2bot/alpha/CapacidadeNivel.json')
+    capacidade = load_json('CapacidadeNivel.json')
 
     quests = object_.navegador.find_elements_by_css_selector('*[ng-click="openQuestLineModal(questLineModel);"]')
     for missao in quests:
@@ -180,9 +180,13 @@ def coletar_missoes(object_, recursos):
 
                     for rec in recursos:
                         reward_recursos = [(int(recursos[rec].replace('.', '')) +
-                                            int(rew[:3]))
+                                            int(rew.split(" ")[0]))
                                             for i, rew in enumerate(reward) if rec in rew]
-                        caso.append(reward_recursos[0])
+                        print()
+                        if len(reward_recursos == 0):
+                            caso.append(0)
+                        else:
+                            caso.append(reward_recursos[0])
 
                     a = True
                     nivel_armazem = object_.navegador.find_element_by_xpath(
@@ -215,10 +219,8 @@ def isRewardAvailable(object_):
         object_.navegador.find_element_by_xpath("//li[contains(@class, 'finishable') and \
             contains(@ng-click, 'openQuestLineModal(questLineModel);')]")
     except NoSuchElementException:
-        print("No finishable quests found")
+        #print("No finishable quests found")
         return False
     else:
-        print("Finishable quests found")
+        #print("Finishable quests found")
         return True
-
-    print("Fim")

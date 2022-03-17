@@ -117,6 +117,18 @@ class Ui_MainWindow(object):
         self.B_Escanear.clicked.connect(self.Button_scan_click)
         self.B_setup.clicked.connect(self.Button_setup_army_click)
         self.B_tests.clicked.connect(self.Button_test_click)
+
+        # Setup builder thred
+        self.Builder = Builder_worker()
+        self.Builder.cons_built_signal.connect(self.cons_built)
+
+        # Setup manager thread
+        self.Manager = Manager_worker()
+        self.Manager.can_build_signal.connect(self.build_cons)
+        self.Manager.reward_available_signal.connect(self.collect_rewards)
+        self.Manager.farm_signal.connect(self.Button_farm_click)
+        self.Manager.CB_Auto_farm = self.CB_Auto_farm # Am I referencing the check box or making another one??
+        
         
 
     def retranslateUi(self, MainWindow):
@@ -154,6 +166,10 @@ class Ui_MainWindow(object):
         self.navegador = webdriver.Chrome(browser_path, options=options)
         self.navegador.implicitly_wait(2)
 
+        # Setup browser on all threads
+        self.Builder.navegador = self.navegador
+        self.Manager.navegador = self.navegador
+
         # Acordar worker2
         self.worker2 = First_Init()
         self.worker2.chrome = self.navegador
@@ -161,8 +177,11 @@ class Ui_MainWindow(object):
         self.worker2.finished.connect(self.F_after_init)
 
 
+
     def Button_test_click(self):
-        twb.isRewardAvaliable(self)
+        self.Manager.awaken = True
+        self.Manager.attack_in = 15 # How many seconds between attacks
+        self.Manager.start()
     
     def Button_setup_army_click(self):
         nome = "farm_pred"
@@ -178,6 +197,8 @@ class Ui_MainWindow(object):
         self.resources = twb.atualizar_recursos(self)
         
         self.worker2.quit()
+
+        #self.Manager.start()
     
     def Button_farm_click(self):
         print("Farm")
@@ -199,15 +220,16 @@ class Ui_MainWindow(object):
         
         # Acordar Builder
         # PRECISA DE ATENÇÂO ISSO AQUI
-        print("Acordar")
-        self.Builder = Builder_worker()
-        self.Builder.navegador = self.navegador
+        # print("Acordar")
+        self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
+        
+        #self.Builder.finished.connect(self.Builder.quit()) # Not working
+        self.Manager.the_ui_know_Q = False
+    
+    def build_cons(self):
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
         self.Builder.fila_bot = self.fila_cons
         self.Builder.start()
-        
-        self.Builder.cons_built.connect(self.cons_built)
-        #self.Builder.finished.connect(self.Builder.quit())
     
     def Button_scan_click(self):
         print("Scan")
@@ -216,6 +238,15 @@ class Ui_MainWindow(object):
     
     def cons_built(self, val):
         self.Fila.takeItem(val)
+        self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
+        self.Manager.the_ui_know_Q = False
+
+    def collect_rewards(self):
+        #resources = {"Madeira": self.resources["Madeira"].text, "Ferro": self.resources["Ferro"].text, "Argila": self.resources["Argila"].text}
+        #print(resources)
+        #twb.coletar_missoes(self, resources) # Should have the builder thread doing it
+        #self.Manager.the_ui_know_R = False
+        print("I should collect my rewards")
 
 class First_Init(QtCore.QThread):
     def run(self):
@@ -247,9 +278,11 @@ class First_Init(QtCore.QThread):
                 pass
             else:
                 waiting = False
+        
+        self.quit()
 
 class Builder_worker(QtCore.QThread):
-    cons_built = QtCore.pyqtSignal(int)
+    cons_built_signal = QtCore.pyqtSignal(int)
     
     def run(self):
         print("Builder working...")
@@ -257,31 +290,39 @@ class Builder_worker(QtCore.QThread):
         if len(self.fila_bot) == 0:
             print("Sem fila")
             
-        elif twb.isQueueEmpty(self):
+        else:
             cons = self.fila_bot[0]
             print(cons)
             
-            # Signal que a construção foi feita
-            self.cons_built.emit(0)
+            try:
+                twb.construir(self, cons)
+            except:
+                print("Can't build")
+            else:
+                # Signal que a construção foi feita
+                self.cons_built_signal.emit(0)
+                print("Feito")
             
-            twb.construir(self, cons)
-            print("Feito")
-            
-        else:
-            print("Fila cheia")
 
         self.quit()
 
-#Manager_worker.navegador = self.navegador
+
 #Manager_worker.awaken = True
 #Manager_worker.attack_in = 5 # How many seconds between attacks
+
 class Manager_worker(QtCore.QThread):
+    # Signals
+    can_build_signal = QtCore.pyqtSignal(bool)
+    reward_available_signal = QtCore.pyqtSignal(bool)
+    farm_signal = QtCore.pyqtSignal(bool)
+
     def run(self):
         print("Manager awaken")
-
         self.the_ui_know_Q = False
         self.the_ui_know_R = False
         self.the_ui_know_A = False
+
+        self.auto_attack = False
 
         now = time.time()
         while self.awaken:
@@ -294,22 +335,29 @@ class Manager_worker(QtCore.QThread):
             #  Variable to collect rewards
             reward_available = twb.isRewardAvailable(self)
 
-            if time_since_last_attack > self.attack_in and self.the_ui_know_A:
+            if (time_since_last_attack > self.attack_in) and (not self.the_ui_know_A ) and (self.CB_Auto_farm.isChecked):
                 # Signal to attack
+                self.farm_signal.emit(True)
+
                 print("Time to attack")
                 self.the_ui_know_A = True
                 now = time.time()
 
-            if queue_empty and not self.the_ui_know_Q:
+            if queue_empty and (not self.the_ui_know_Q):
                 # Signal to build
+                self.can_build_signal.emit(True)
+
                 print("Queue empty")
                 self.the_ui_know_Q = True
 
-            if reward_available and not self.the_ui_know_R:
+            if reward_available and (not self.the_ui_know_R):
                 #Signal to collect rewards
+                self.reward_available_signal.emit(True)
+
                 print("Rewards available")
                 self.the_ui_know_R = True
         
+        print("Manager sleeping")
         self.quit()
     
 
