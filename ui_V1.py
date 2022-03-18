@@ -119,15 +119,13 @@ class Ui_MainWindow(object):
         self.B_tests.clicked.connect(self.Button_test_click)
 
         # Setup builder thred
-        self.Builder = Builder_worker()
-        self.Builder.cons_built_signal.connect(self.cons_built)
+        #self.Builder = Builder_worker()
 
         # Setup manager thread
         self.Manager = Manager_worker()
-        self.Manager.can_build_signal.connect(self.build_cons)
         self.Manager.reward_available_signal.connect(self.collect_rewards)
         self.Manager.farm_signal.connect(self.Button_farm_click)
-        self.Manager.CB_Auto_farm = self.CB_Auto_farm # Am I referencing the check box or making another one??
+        self.Manager.cons_built_signal.connect(self.cons_built)
         
         
 
@@ -222,14 +220,15 @@ class Ui_MainWindow(object):
         # PRECISA DE ATENÇÂO ISSO AQUI
         # print("Acordar")
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
+        self.Manager.Fila = self.fila_cons
         
         #self.Builder.finished.connect(self.Builder.quit()) # Not working
         self.Manager.the_ui_know_Q = False
     
     def build_cons(self):
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
-        self.Builder.fila_bot = self.fila_cons
-        self.Builder.start()
+        self.Manager.Fila = self.fila_cons
+        #self.Builder.start()
     
     def Button_scan_click(self):
         print("Scan")
@@ -312,7 +311,7 @@ class Builder_worker(QtCore.QThread):
 
 class Manager_worker(QtCore.QThread):
     # Signals
-    can_build_signal = QtCore.pyqtSignal(bool)
+    cons_built_signal = QtCore.pyqtSignal(int)
     reward_available_signal = QtCore.pyqtSignal(bool)
     farm_signal = QtCore.pyqtSignal(bool)
 
@@ -323,6 +322,9 @@ class Manager_worker(QtCore.QThread):
         self.the_ui_know_A = False
 
         self.auto_attack = False
+        self.Fila = False
+
+        self.can_build = False
 
         now = time.time()
         while self.awaken:
@@ -345,7 +347,7 @@ class Manager_worker(QtCore.QThread):
 
             if queue_empty and (not self.the_ui_know_Q):
                 # Signal to build
-                self.can_build_signal.emit(True)
+                self.can_build = True
 
                 print("Queue empty")
                 self.the_ui_know_Q = True
@@ -356,9 +358,34 @@ class Manager_worker(QtCore.QThread):
 
                 print("Rewards available")
                 self.the_ui_know_R = True
+
+            if self.can_build and self.Fila:
+                print("Trying to build")
+                self.build(self.Fila[0])
+
+                self.the_ui_know_Q = False
         
         print("Manager sleeping")
         self.quit()
+    
+    def build(self, cons):
+        print("Builder working...")
+        
+        if len(self.Fila) == 0:
+            print("Sem fila")
+            
+        else:
+            cons = self.Fila[0]
+            print(cons)
+            
+            try:
+                twb.construir(self, cons)
+            except:
+                print("Can't build")
+            else:
+                # Signal que a construção foi feita
+                self.cons_built_signal.emit(0)
+                print("Feito")
     
 
 if __name__ == "__main__":
