@@ -112,17 +112,15 @@ class Ui_MainWindow(object):
         
         self.B_Farmar.clicked.connect(self.Button_farm_click)
         self.B_Add_Coords.clicked.connect(self.Button_add_coords_click)
-        #self.B_Atualizar_Rec.clicked.connect(self.Button_update_resources_click)
         self.B_Construir.clicked.connect(self.Button_build_click)
         self.B_Escanear.clicked.connect(self.Button_scan_click)
         self.B_setup.clicked.connect(self.Button_setup_army_click)
         self.B_tests.clicked.connect(self.Button_test_click)
-
-        # Setup builder thred
-        #self.Builder = Builder_worker()
+        self.CB_Auto_farm.stateChanged.connect(self.AutoFarm_checked)
 
         # Setup manager thread
         self.Manager = Manager_worker()
+
         self.Manager.reward_available_signal.connect(self.collect_rewards)
         self.Manager.farm_signal.connect(self.Button_farm_click)
         self.Manager.cons_built_signal.connect(self.cons_built)
@@ -165,7 +163,6 @@ class Ui_MainWindow(object):
         self.navegador.implicitly_wait(2)
 
         # Setup browser on all threads
-        self.Builder.navegador = self.navegador
         self.Manager.navegador = self.navegador
 
         # Acordar worker2
@@ -175,11 +172,14 @@ class Ui_MainWindow(object):
         self.worker2.finished.connect(self.F_after_init)
 
 
+    def AutoFarm_checked(self):
+        if self.CB_Auto_farm.isChecked:
+            self.Manager.auto_attack = True
+        else:
+            self.Manager.auto_attack = False
 
     def Button_test_click(self):
-        self.Manager.awaken = True
-        self.Manager.attack_in = 15 # How many seconds between attacks
-        self.Manager.start()
+        self.Manager.awaken = False
     
     def Button_setup_army_click(self):
         nome = "farm_pred"
@@ -196,13 +196,15 @@ class Ui_MainWindow(object):
         
         self.worker2.quit()
 
-        #self.Manager.start()
+        self.Manager.start()
     
     def Button_farm_click(self):
         print("Farm")
         for i in range(self.Lista_Farm.count()):
             alvo = self.Lista_Farm.item(i).text()
             twb.atacar(self, alvo, "farm_pred")
+
+        self.Manager.now = time.time()
             
     def Button_add_coords_click(self):
         coord_x = self.I_Coord_X.text()
@@ -216,19 +218,14 @@ class Ui_MainWindow(object):
         cons = self.C_Edificio.currentText()
         self.Fila.addItem(cons)
         
-        # Acordar Builder
-        # PRECISA DE ATENÇÂO ISSO AQUI
-        # print("Acordar")
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
         self.Manager.Fila = self.fila_cons
         
-        #self.Builder.finished.connect(self.Builder.quit()) # Not working
         self.Manager.the_ui_know_Q = False
     
     def build_cons(self):
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
         self.Manager.Fila = self.fila_cons
-        #self.Builder.start()
     
     def Button_scan_click(self):
         print("Scan")
@@ -238,6 +235,7 @@ class Ui_MainWindow(object):
     def cons_built(self, val):
         self.Fila.takeItem(val)
         self.fila_cons =  [str(self.Fila.item(i).text()) for i in range(self.Fila.count())]
+        self.Manager.Fila = self.fila_cons
         self.Manager.the_ui_know_Q = False
 
     def collect_rewards(self):
@@ -280,35 +278,6 @@ class First_Init(QtCore.QThread):
         
         self.quit()
 
-class Builder_worker(QtCore.QThread):
-    cons_built_signal = QtCore.pyqtSignal(int)
-    
-    def run(self):
-        print("Builder working...")
-        
-        if len(self.fila_bot) == 0:
-            print("Sem fila")
-            
-        else:
-            cons = self.fila_bot[0]
-            print(cons)
-            
-            try:
-                twb.construir(self, cons)
-            except:
-                print("Can't build")
-            else:
-                # Signal que a construção foi feita
-                self.cons_built_signal.emit(0)
-                print("Feito")
-            
-
-        self.quit()
-
-
-#Manager_worker.awaken = True
-#Manager_worker.attack_in = 5 # How many seconds between attacks
-
 class Manager_worker(QtCore.QThread):
     # Signals
     cons_built_signal = QtCore.pyqtSignal(int)
@@ -320,40 +289,34 @@ class Manager_worker(QtCore.QThread):
         self.the_ui_know_Q = False
         self.the_ui_know_R = False
         self.the_ui_know_A = False
-
         self.auto_attack = False
         self.Fila = False
-
         self.can_build = False
+        self.attack_in = 20
+        self.now = time.time()
+        self.awaken = True
 
-        now = time.time()
         while self.awaken:
-            # Variable to build
             queue_empty = twb.isQueueEmpty(self)
-
-            # Variables to attack
-            time_since_last_attack = now - time.time()
-
-            #  Variable to collect rewards
+            time_since_last_attack = self.now - time.time()
             reward_available = twb.isRewardAvailable(self)
 
-            if (time_since_last_attack > self.attack_in) and (not self.the_ui_know_A ) and (self.CB_Auto_farm.isChecked):
-                # Signal to attack
-                self.farm_signal.emit(True)
+            # Attack
+            if (time_since_last_attack > self.attack_in) and (not self.the_ui_know_A ) and (self.auto_attack):
+                self.farm_signal.emit(True) # Same as clicking the "Farm" button
 
                 print("Time to attack")
                 self.the_ui_know_A = True
-                now = time.time()
 
+            # Building
             if queue_empty and (not self.the_ui_know_Q):
-                # Signal to build
                 self.can_build = True
 
                 print("Queue empty")
                 self.the_ui_know_Q = True
 
+            # Rewards
             if reward_available and (not self.the_ui_know_R):
-                #Signal to collect rewards
                 self.reward_available_signal.emit(True)
 
                 print("Rewards available")
