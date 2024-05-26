@@ -1,3 +1,3 @@
 # TW2-Tools
- An automation exercise on a browser game I used to play.
+ A basic automation exercise on browser game.
  Made mainly using selenium and pyqt5
